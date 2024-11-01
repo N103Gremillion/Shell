@@ -10,17 +10,22 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <wait.h>
+#include <string.h>
+
+#define TRUE 1
+#define FALSE 0
+#define MAXARGS 10
 
 // Shell command definition
 typedef struct {
-    char* curCommand;
-    char** args;
+    char* curArg;
+    char** argsList;
     int argsCount;
 } ShellCommand;
 
 //Functions to implement:
 char* CommandPrompt(); // Display current working directory and return user input
-ShellCommand ParseCommandLine(char* input); // Process the user input (As a shell command)
+ShellCommand* ParseCommandLine(char* input); // Process the user input (As a shell command)
 void ExecuteCommand(ShellCommand command); //Execute a shell command
 
 int main() {
@@ -28,14 +33,22 @@ int main() {
     char* input;
     ShellCommand command;
 
-    //struct ShellCommand command;
-
     // repeatedly prompt the user for input
     for (;;)
     {
         input = CommandPrompt();
+
         // parse the command line
-        command = ParseCommandLine(input);
+        command = *(ParseCommandLine(input));
+
+        printf("The total number of args in is : %d.\n", command.argsCount);
+        printf("The first arg is : %s.\n", command.curArg);
+
+        for (int i = 0; i < command.argsCount; i++){
+            printf("The %d commmand is : %s. \n", i, command.argsList[i]);
+        }
+
+        printf("\n");
         // execute the command
         //ExecuteCommand(command);
         free(input);
@@ -44,8 +57,60 @@ int main() {
 }
 
 // parse the input form the user into a CommandPromt format that is easier to read from allocats 256 bytes for the struct
-ShellCommand ParseCommandLine(char* input){
-    ShellCommand command;
+ShellCommand* ParseCommandLine(char* input){
+
+    if (input == NULL){
+        return NULL;
+    }
+
+    ShellCommand* command = malloc(sizeof(ShellCommand)); 
+    char** argsList = malloc(MAXARGS * sizeof(char*));
+    int argsCount = 0;
+    char buffer[100] = "";
+    int inArg = FALSE;
+    int wordLen = 0;
+
+    for (int i = 0; i < strlen(input); i++){
+        if (input[i] == ' '){
+            if (inArg == TRUE){
+                buffer[wordLen] = '\0';
+                argsList[argsCount] = strdup(buffer);
+                argsCount++;
+                wordLen = 0;
+                inArg = FALSE;
+            }
+        }
+        else{
+            if (inArg == FALSE){
+                inArg = TRUE;
+            }
+            
+            if (wordLen < 99){
+                buffer[wordLen] = input[i];
+                wordLen++;
+            }
+            
+        }
+
+    }
+
+    // add the final element since elements are added when ther is a ' '
+    if (inArg) {
+        buffer[wordLen] = '\0';
+        argsList[argsCount] = strdup(buffer);
+        argsCount++;
+    }
+
+    if (argsCount == 0){
+        free(argsList);
+        free(command);
+        return NULL;
+    }
+
+    command->curArg = argsList[0];
+    command->argsCount = argsCount;
+    command->argsList = argsList;
+
     return command;
 }
 
@@ -77,8 +142,8 @@ char* CommandPrompt() {
     printf("%s$ ", cwd);
 
     // get a input form the user
-    scanf("%255s", commands);
-    
+    scanf(" %255[^\n]", commands);
+
     free(cwd);
 
     return commands;
