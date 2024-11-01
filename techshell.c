@@ -11,27 +11,15 @@
 #include <sys/types.h>
 #include <wait.h>
 #include <string.h>
+#include "techshell.h"
 
 #define TRUE 1
 #define FALSE 0
 #define MAXARGS 10
 
-// Shell command definition
-typedef struct {
-    char* curArg;
-    char** argsList;
-    int argsCount;
-} ShellCommand;
-
-//Functions to implement:
-char* CommandPrompt(); // Display current working directory and return user input
-ShellCommand* ParseCommandLine(char* input); // Process the user input (As a shell command)
-void ExecuteCommand(ShellCommand command); //Execute a shell command
-
-int main() {
-
+void startShell(){
     char* input;
-    ShellCommand command;
+    ShellCommand* command;
 
     // repeatedly prompt the user for input
     for (;;)
@@ -39,18 +27,20 @@ int main() {
         input = CommandPrompt();
 
         // parse the command line
-        command = *(ParseCommandLine(input));
+        command = ParseCommandLine(input);
 
-        printf("The total number of args in is : %d.\n", command.argsCount);
-        printf("The first arg is : %s.\n", command.curArg);
+        printf("The total number of args in is : %d.\n", command->argsCount);
+        printf("The first arg is : %s.\n", command->curArg);
 
-        for (int i = 0; i < command.argsCount; i++){
-            printf("The %d commmand is : %s. \n", i, command.argsList[i]);
+        for (int i = 0; i < command->argsCount; i++){
+            printf("The %d commmand is : %s. \n", i, command->argsList[i]);
         }
 
         printf("\n");
+
         // execute the command
         //ExecuteCommand(command);
+
         free(input);
     }
     exit(0);

@@ -1,2 +1,2 @@
-gcc techshell-template.c -o shell
+gcc techshell.c main.c -o shell
 ./shell
