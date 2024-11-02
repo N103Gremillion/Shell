@@ -14,7 +14,7 @@ techshell.c
 
   - ParseCommandLine() - parse the input form the user into a CommandPromt format that is easier to read from this is a (ShellCommand struct) / the ShellCommand struct contains a argsCount(number of args in input), argsList(List of strings in the input)
 
-  - ExecuteCommand() - takes in a CommandPrompt stuct and executes the arguments in it in a forked process(if not a cd command) uses fork() to create a child proceess and execv() to execute a command in the forked process
+  - ExecuteCommand() - takes in a CommandPrompt stuct and executes the arguments in it in a forked process(if not a cd command) uses fork() to create a child proceess and execv() to execute a command in the forked process / uses the chdir to handle cd / uses execv to execute commands / 
 
   - startShell() - startup the techshell and runs CommandPrompt() to print current directory then get input form user / then runs ParseCommand(input) on the input from CommandPrompt() returning a ShellCommand instance / uses the ExecuteCommand(command) to try and execute the current ShellCommand /
   repetedly loops over using for(;;) to continue the shell prompt

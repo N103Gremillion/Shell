@@ -29,7 +29,11 @@ void startShell(){
 
         // parse the command line
         command = ParseCommandLine(input);
-
+        
+        // check if they exit
+        if (command != NULL && strcmp(command->argsList[0], "exit") == 0) {
+            exit(0);
+        }
         // execute the command
         ExecuteCommand(command);
 
@@ -46,13 +50,13 @@ void ExecuteCommand(ShellCommand* command){
         char* path = command->argsList[1];
         int status;
         // defualt to home directory if not arg is given to change to 
-        if (path == NULL){
+        if (path == NULL || strcmp(path, "~") == 0){
             char* home = getenv("HOME");
             status = chdir(home);
 
             // -1 indicates a error
             if (status == -1){
-                fprintf(stderr, "Error: %s\n", strerror(errno));
+                fprintf(stderr, "Error %d: %s\n", errno, strerror(errno));
             }
         }
         else {
@@ -60,7 +64,7 @@ void ExecuteCommand(ShellCommand* command){
 
             // if path is invalid
             if (status == -1){
-                fprintf(stderr, "Error: %s\n", strerror(errno));
+                fprintf(stderr, "Error %d: %s\n", errno, strerror(errno));
             }
         }
         return;
@@ -71,12 +75,62 @@ void ExecuteCommand(ShellCommand* command){
     if (pid == 0){
 
         char** argsList = command->argsList;
-        char* command = argsList[0];
+        int totalCommands = command->argsCount;
+        FILE* inputFile = NULL;
+        FILE* outputFile = NULL;
 
-        int statusCode = execvp(command, argsList);
+        // loop over the args and check for < and >
+        for (int i = 0; i < totalCommands; i++){
+            // input redirection
+            if (strcmp(argsList[i], "<") == 0 && argsList[i + 1] != NULL){
+                inputFile = fopen(argsList[i + 1], "r");
+                if (inputFile == NULL){
+                    fprintf(stderr, "Error %d: %s\n", errno, strerror(errno));
+                    exit(1);
+                }
+                // redirect the input 0 for stdin
+                dup2(fileno(inputFile), 0);
+                fclose(inputFile);
+
+                // remove the < and filename from the arguments list
+                argsList[i] = NULL;
+                argsList[i + 1] = NULL;
+                i++;
+            }
+            // output redirection
+            else if (strcmp(argsList[i], ">") == 0 && argsList[i + 1] != NULL){
+                outputFile = fopen(argsList[i + 1], "w");
+                if (outputFile == NULL){
+                    fprintf(stderr, "Error %d: %s\n", errno, strerror(errno));
+                    exit(1);
+                }
+                // 1 is for stdout
+                dup2(fileno(outputFile), 1);
+                fclose(outputFile);
+
+                // remove the < and filename from the arguments list
+                argsList[i] = NULL;
+                argsList[i + 1] = NULL;
+                i++;
+            }
+        }
+
+        // filter out all the NULL args
+        char* filteredArguments[MAXARGS];
+        int j = 0;
+
+        for (int i = 0; i < totalCommands; i++) {
+            if (argsList[i] != NULL){
+                filteredArguments[j] = argsList[i];
+                j++;
+            }
+        }
+        filteredArguments[j] = NULL;
+
+        int statusCode = execvp(filteredArguments[0], argsList);
 
         if (statusCode == -1){
-            fprintf(stderr, "Error: %s\n", strerror(errno));
+            fprintf(stderr, "Error %d: %s\n", errno, strerror(errno));
             exit(1);
         }
         exit(0);
@@ -141,35 +195,50 @@ ShellCommand* ParseCommandLine(char* input){
 
 // get input form user and return using scanf() and alloc a 
 char* CommandPrompt() {
-
     long size;
     char* cwd;
-    // buffer for user input
+    char* home;
+    char* displayPath;
     char* commands;
 
-    // get the current path size
+    // Get the path size limit
     size = pathconf(".", _PC_PATH_MAX);
     cwd = (char*)malloc(size);
     commands = (char*)malloc(256);
 
-    if (cwd == NULL) {
-        printf("Error allocating buffer");
+    if (cwd == NULL || commands == NULL) {
+        printf("Error allocating buffer\n");
         return NULL;
     }
 
-    // try and get the current directory
+    // Try to get the current directory
     if (getcwd(cwd, size) == NULL) {
-        printf("Error when trying to get the current directory");
+        printf("Error when trying to get the current directory\n");
         free(cwd);
+        free(commands);
         return NULL;
     }
 
-    printf("%s$ ", cwd);
+    // Get the user's home directory
+    home = getenv("HOME");
 
-    // get a input form the user
+    // Allocate buffer for display path
+    displayPath = (char*)malloc(size);
+
+    // Check if cwd starts with home, and replace with '~' if it does
+    if (home != NULL && strncmp(cwd, home, strlen(home)) == 0) {
+        snprintf(displayPath, size, "~%s", cwd + strlen(home));
+    } else {
+        strncpy(displayPath, cwd, size);
+    }
+
+    printf("%s$ ", displayPath);
+
+    // Get input from user
     scanf(" %255[^\n]", commands);
-
+    
     free(cwd);
+    free(displayPath);
 
     return commands;
 }
