@@ -3,7 +3,6 @@
 * Date: 8/31/2024
 * Description: **Include what you were and were not able to handle!**
 *
-*
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,11 +10,13 @@
 #include <sys/types.h>
 #include <wait.h>
 #include <string.h>
+#include <errno.h>
 #include "techshell.h"
 
 #define TRUE 1
 #define FALSE 0
 #define MAXARGS 10
+#define DEBUG
 
 void startShell(){
     char* input;
@@ -29,21 +30,58 @@ void startShell(){
         // parse the command line
         command = ParseCommandLine(input);
 
-        printf("The total number of args in is : %d.\n", command->argsCount);
-        printf("The first arg is : %s.\n", command->curArg);
-
-        for (int i = 0; i < command->argsCount; i++){
-            printf("The %d commmand is : %s. \n", i, command->argsList[i]);
-        }
-
-        printf("\n");
-
         // execute the command
-        //ExecuteCommand(command);
+        ExecuteCommand(command);
 
         free(input);
     }
     exit(0);
+}
+
+void ExecuteCommand(ShellCommand* command){
+    if (command == NULL) return;
+
+    // check if the command is cd since it can not be run in the child process
+    if (strcmp(command->argsList[0], "cd") == 0) {
+        char* path = command->argsList[1];
+        int status;
+        // defualt to home directory if not arg is given to change to 
+        if (path == NULL){
+            char* home = getenv("HOME");
+            status = chdir(home);
+
+            // -1 indicates a error
+            if (status == -1){
+                fprintf(stderr, "Error: %s\n", strerror(errno));
+            }
+        }
+        else {
+            status = chdir(path);
+
+            // if path is invalid
+            if (status == -1){
+                fprintf(stderr, "Error: %s\n", strerror(errno));
+            }
+        }
+        return;
+    }
+
+    pid_t pid = fork();
+
+    if (pid == 0){
+
+        char** argsList = command->argsList;
+        char* command = argsList[0];
+
+        int statusCode = execvp(command, argsList);
+
+        if (statusCode == -1){
+            fprintf(stderr, "Error: %s\n", strerror(errno));
+            exit(1);
+        }
+        exit(0);
+    }
+    wait(NULL);
 }
 
 // parse the input form the user into a CommandPromt format that is easier to read from allocats 256 bytes for the struct
@@ -78,10 +116,8 @@ ShellCommand* ParseCommandLine(char* input){
             if (wordLen < 99){
                 buffer[wordLen] = input[i];
                 wordLen++;
-            }
-            
+            }   
         }
-
     }
 
     // add the final element since elements are added when ther is a ' '
@@ -89,6 +125,7 @@ ShellCommand* ParseCommandLine(char* input){
         buffer[wordLen] = '\0';
         argsList[argsCount] = strdup(buffer);
         argsCount++;
+        argsList[argsCount] = NULL;
     }
 
     if (argsCount == 0){
@@ -97,10 +134,8 @@ ShellCommand* ParseCommandLine(char* input){
         return NULL;
     }
 
-    command->curArg = argsList[0];
     command->argsCount = argsCount;
     command->argsList = argsList;
-
     return command;
 }
 
